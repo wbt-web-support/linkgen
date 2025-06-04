@@ -9,6 +9,10 @@ const toast = document.getElementById('toast');
 // State
 let resultCounter = 0;
 
+// Local Storage Keys
+const STORAGE_KEY = 'linkgen_results';
+const COUNTER_KEY = 'linkgen_counter';
+
 // Event Listeners
 generateBtn.addEventListener('click', generateUrls);
 urlInput.addEventListener('input', handleInputChange);
@@ -70,6 +74,89 @@ function addParameterToUrl(url, parameter, value) {
     }
 }
 
+// Save results to localStorage
+function saveToLocalStorage() {
+    try {
+        const results = Array.from(document.querySelectorAll('.result-set')).map(resultSet => {
+            const timestamp = resultSet.querySelector('.timestamp').textContent;
+            const metaGroup = resultSet.querySelector('[id^="meta-group-"]');
+            const googleGroup = resultSet.querySelector('[id^="google-group-"]');
+            
+            const metaUrls = Array.from(metaGroup.querySelectorAll('.url-item')).map(item => 
+                item.textContent.replace(/^\d+\.\s/, '')
+            );
+            const googleUrls = Array.from(googleGroup.querySelectorAll('.url-item')).map(item => 
+                item.textContent.replace(/^\d+\.\s/, '')
+            );
+            
+            return {
+                timestamp,
+                metaUrls,
+                googleUrls,
+                resultId: resultSet.id
+            };
+        });
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
+        localStorage.setItem(COUNTER_KEY, resultCounter.toString());
+    } catch (error) {
+        console.error('Failed to save to localStorage:', error);
+    }
+}
+
+// Load results from localStorage
+function loadFromLocalStorage() {
+    try {
+        const savedResults = localStorage.getItem(STORAGE_KEY);
+        const savedCounter = localStorage.getItem(COUNTER_KEY);
+        
+        if (savedResults && savedCounter) {
+            resultCounter = parseInt(savedCounter, 10) || 0;
+            const results = JSON.parse(savedResults);
+            
+            if (results.length > 0) {
+                // Hide welcome message if we have saved results
+                welcomeMessage.style.display = 'none';
+                
+                // Restore each result set
+                results.forEach((result, index) => {
+                    const setId = index + 1;
+                    const resultSetHTML = `
+                        <div class="result-set" id="result-set-${setId}">
+                            <div class="message-wrapper">
+                                <div class="message assistant-message">
+                                    <div class="message-avatar">
+                                        <i class="fas fa-robot"></i>
+                                    </div>
+                                    <div class="message-content">
+                                        <div class="result-header">
+                                            <h3><i class="fas fa-link"></i> Generated ${result.metaUrls.length} tracking URL(s)</h3>
+                                            <span class="timestamp">${result.timestamp}</span>
+                                        </div>
+                                        <div class="url-results">
+                                            ${createCompactUrlGroupHTML('Meta Ads URLs', 'facebook', result.metaUrls, `meta-group-${setId}`)}
+                                            ${createCompactUrlGroupHTML('Google Ads URLs', 'google', result.googleUrls, `google-group-${setId}`)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    resultsContainer.insertAdjacentHTML('beforeend', resultSetHTML);
+                });
+                
+                showToast(`Restored ${results.length} previous result(s)`, 'success');
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load from localStorage:', error);
+        // Clear corrupted data
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(COUNTER_KEY);
+    }
+}
+
 // Generate URLs with tracking parameters
 async function generateUrls() {
     const urls = getUrlsFromInput();
@@ -91,7 +178,7 @@ async function generateUrls() {
     generateBtn.disabled = true;
     
     // Hide welcome message after first generation
-    if (resultCounter === 0) {
+    if (resultCounter === 0 && resultsContainer.children.length === 0) {
         welcomeMessage.style.display = 'none';
     }
     
@@ -119,6 +206,9 @@ async function generateUrls() {
         if (successfulResults.length > 0) {
             // Create result set
             createResultSet(successfulResults);
+            
+            // Save to localStorage
+            saveToLocalStorage();
             
             // Clear input
             urlInput.value = '';
@@ -327,6 +417,9 @@ function init() {
     // Set initial URL count
     urlCount.textContent = '0';
     
+    // Load saved results from localStorage
+    loadFromLocalStorage();
+    
     // Add paste event listener for better UX
     urlInput.addEventListener('paste', (event) => {
         setTimeout(() => {
@@ -364,6 +457,11 @@ window.clearAllResults = function() {
     resultsContainer.innerHTML = '';
     welcomeMessage.style.display = 'block';
     resultCounter = 0;
+    
+    // Clear localStorage
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(COUNTER_KEY);
+    
     showToast('All results cleared', 'success');
 };
 

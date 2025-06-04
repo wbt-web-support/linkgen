@@ -379,11 +379,9 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(180deg, transparent 0%, #000000 20%, #000000 100%);
     padding: 1rem 2rem 2rem;
     z-index: 90;
     backdrop-filter: blur(10px);
-    border-top: 1px solid #222222;
 }
 
 .sticky-input-section .input-container {
